@@ -1,0 +1,20 @@
+{
+  "name": "Job Auto Apply",
+  "description": "The competition for jobs is getting tough. Modern problems require modern solutions.",
+  "version": "1.0",
+  "manifest_version": 3,
+  "action": {
+    "default_popup": "hello.html",
+    "default_icon": "default.png"
+  },
+  "permissions": ["scripting", "activeTab"],
+  "host_permissions": [
+    "https://*/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://*.linkedin.com/*"],
+      "js": ["page-scripts/linkedin.js"]
+    }
+  ]
+}
