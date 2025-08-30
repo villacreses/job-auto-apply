@@ -8,11 +8,11 @@ export class AbstractButtonGroup extends HTMLElement {
 
   connectedCallback() {
     if (!this._initialized) {
-      this.init(this._buttonProps);
+      this._init(this._buttonProps);
     }
   }
 
-  init(config) {
+  _init(config) {
     this.classList.add('btn-group');
     
     config.forEach(({ buttonText, action }) =>
@@ -22,27 +22,25 @@ export class AbstractButtonGroup extends HTMLElement {
     this._initialized = true;
   }
 
-  // AbstractExtButton.js
-
-buildElement(buttonText, action) {
-  const button = document.createElement('button');
-  
-  button.innerText = buttonText;
-  button.addEventListener("click", async () => {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  buildElement(buttonText, action) {
+    const button = document.createElement('button');
     
-    // Use a callback to handle potential errors
-    chrome.tabs.sendMessage(tab.id, { action }, (response) => {
-      // Check for an error in the last operation
-      if (chrome.runtime.lastError) {
-        console.error("Error sending message:", chrome.runtime.lastError.message);
-      } else {
-        // Handle a successful response, if any
-        console.log("Message sent successfully.");
-      }
+    button.innerText = buttonText;
+    button.addEventListener("click", async () => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      
+      // Use a callback to handle potential errors
+      chrome.tabs.sendMessage(tab.id, { action }, (response) => {
+        // Check for an error in the last operation
+        if (chrome.runtime.lastError) {
+          console.error("Error sending message:", chrome.runtime.lastError.message);
+        } else {
+          // Handle a successful response, if any
+          console.log("Message sent successfully.");
+        }
+      });
     });
-  });
-  
-  this.appendChild(button);
-}
+    
+    this.appendChild(button);
+  }
 }

@@ -37,7 +37,7 @@ function hasEmptyInput() {
   return !!(emptyTextInputs.length + emptyDropdowns.length);
 }
 
-function traverseListing(iteration = 1) {
+async function traverseListing(iteration = 1) {
   if (iteration > 10) return;
 
   if (hasEmptyInput()) {
@@ -49,22 +49,27 @@ function traverseListing(iteration = 1) {
   console.log(`[Traversal #${iteration}]`);
   const nextButton = document.querySelector('[data-easy-apply-next-button], [data-live-test-easy-apply-review-button]');
   const submitButton = document.querySelector('[data-live-test-easy-apply-submit-button]');
-  if (submitButton) {
+  
+  if (submitButton && state.getState() === traversalEnum.ACTIVE) {
     const followCheckbox = document.getElementById('follow-company-checkbox');
     if (followCheckbox && followCheckbox.checked) followCheckbox.click();
 
     document.querySelector('[data-live-test-easy-apply-submit-button]').click();
 
-    delay(1000)
-      .then(() => document.querySelector('button:not(:has(svg))').click())
-      .then(delay(2000))
-      .then(() => document.querySelector('button[data-test-modal-close-btn]')?.click()) // end of application
-      .then(delay(2000))
-      .then(() => document.querySelector('button[data-test-modal-close-btn]')?.click()) // "application sent" confirmation
-      .then(state.endTraversal)
+    await delay(1000);
+    document.querySelector('button:not(:has(svg))').click();
+    
+    await delay(2000);
+    document.querySelector('button[data-test-modal-close-btn]')?.click(); // end of application
+
+    await delay(2000);
+    document.querySelector('button[data-test-modal-close-btn]')?.click(); // "application sent" confirmation
+
+    state.endTraversal();
   } else if (nextButton && state.getState() === traversalEnum.ACTIVE) {
     nextButton.click();
-    delay(500).then(() => traverseListing(iteration + 1));
+    await delay(500);
+    traverseListing(iteration + 1);
   }
 }
 
