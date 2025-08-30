@@ -4,18 +4,26 @@ const traversalEnum = {
   ACTIVE: 'ACTIVE'
 }
 
+const getNextListing = () =>
+  document.querySelector('li[data-occludable-job-id]:has(svg[data-test-icon=linkedin-bug-color-small]) .job-card-container--clickable');
+
 const state = (function (){
   let state = traversalEnum.INACTIVE;
 
   const _updateState = (newState) => {
     state = newState;
 
-    chrome.runtime.sendMessage({
-      website: 'LINKEDIN',
-      contentState: {
+    const message = {
+      source: 'CONTENT_LINKEDIN',
+      target: 'EXT_DOM',
+      handler: 'LINKEDIN',
+      content: {
         traversalState: state,
       }
-    })
+    };
+
+    console.log('Sending message:', message);
+    chrome.runtime.sendMessage(message);
   }
 
   return {
@@ -73,8 +81,9 @@ async function traverseListing(iteration = 1) {
   }
 }
 
-function nextListing () {
+async function nextListing () {
   if (state.getState() === traversalEnum.PAUSED && document.querySelectorAll('form').length) {
+    console.log('Continuing paused traversal...')
     state.startTraversal();
     traverseListing();
     return;
@@ -83,23 +92,29 @@ function nextListing () {
   console.log('Executing nextListing...');
   state.startTraversal();
   
-  const listing = document.querySelector('li[data-occludable-job-id]:has(svg[data-test-icon=linkedin-bug-color-small]) .job-card-container--clickable');
+  const listing = getNextListing();
   if (!listing) return;
   listing.click();
-  delay(100)
-    .then(() => document.getElementById('jobs-apply-button-id').click())
-    .then(() => delay(100))
-    .then(traverseListing)
+  
+  await delay(100)
+  document.getElementById('jobs-apply-button-id').click();
+  await delay(100);
+  traverseListing()
+}
+
+function abandonListing() {
+  const listing = getNextListing();
 }
 
 console.log('LinkedIn content script loaded.')
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('Message received:', message)
-  console.log('E', message.action, message.action === 'LINKEDIN_NEXT_LISTING')
-
+  console.log('Message received from page:', message);
+  sendResponse({ res: 200 });
+  
   if (message.action === 'LINKEDIN_NEXT_LISTING') {
-    console.log('reached 1')
     nextListing();
+  } else if (message.action === 'LINKEDIN_ABORT_LISTING') {
+    abandonListing();
   }
 });
