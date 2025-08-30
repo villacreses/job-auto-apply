@@ -22,20 +22,27 @@ export class AbstractButtonGroup extends HTMLElement {
     this._initialized = true;
   }
 
-  buildElement(buttonText, action) {
-    const button = document.createElement('button');
-    
-    button.innerText = buttonText;
-    button.addEventListener("click", async () => {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      await chrome.tabs.sendMessage(tab.id, { action });
-    });
-    
-    this.appendChild(button);
-  }
-}
+  // AbstractExtButton.js
 
-export function createAndRegisterButton(elementName, buttonProps) {
-  console.log('elementName', elementName)
-  customElements.define(elementName, buildButtonClass(buttonProps));
+buildElement(buttonText, action) {
+  const button = document.createElement('button');
+  
+  button.innerText = buttonText;
+  button.addEventListener("click", async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    
+    // Use a callback to handle potential errors
+    chrome.tabs.sendMessage(tab.id, { action }, (response) => {
+      // Check for an error in the last operation
+      if (chrome.runtime.lastError) {
+        console.error("Error sending message:", chrome.runtime.lastError.message);
+      } else {
+        // Handle a successful response, if any
+        console.log("Message sent successfully.");
+      }
+    });
+  });
+  
+  this.appendChild(button);
+}
 }

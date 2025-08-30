@@ -1,9 +1,10 @@
+import { LINKEDIN_NEXT_LISTING } from "../constants.js";
 import { AbstractButtonGroup } from "./AbstractExtButton.js";
 
 class LinkedInButtons extends AbstractButtonGroup {
   constructor() {
     super([
-      { buttonText: 'Test', action: 'test' },
+      { buttonText: 'Test', action: LINKEDIN_NEXT_LISTING },
     ]);
   }
 }
