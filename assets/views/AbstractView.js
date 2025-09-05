@@ -23,14 +23,15 @@ export class AbstractView extends HTMLElement {
     this._buttonProps.forEach(this.buildElement);
     this.classList.add('btn-group');
 
-    const saved = await chrome.storage.local.get([storageKey]);
+    const saved = await chrome.storage.session.get([storageKey]);
+    console.log('Saved?', saved)
     
     if (!saved[storageKey]) { 
       await Promise.all(
         this._scriptFilenames.map(AbstractView.injectScript)
       );
       
-      chrome.storage.local.set({ [storageKey]: true });
+      chrome.storage.session.set({ [storageKey]: true });
     }
 
     this._initialized = true;
@@ -58,7 +59,6 @@ export class AbstractView extends HTMLElement {
     if (className) button.classList.add(className);
     
     button.addEventListener("click", async () => {
-      console.log('Clicked')
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
       chrome.scripting.executeScript({       
