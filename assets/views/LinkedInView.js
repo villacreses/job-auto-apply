@@ -2,7 +2,7 @@
 import { AbstractView } from "./AbstractView.js";
 
 const buttonText = {
-  INACTIVE: 'Next Listing',
+  INACTIVE: 'Start Easy Apply',
   PAUSED: 'Continue',
   ACTIVE: 'Running'
 }

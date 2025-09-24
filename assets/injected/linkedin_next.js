@@ -27,155 +27,160 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
 
     return totalEmpty.length > 0;
   }
-  
-  class JobController {
-    static traversalenum = {
-      INACTIVE: 'INACTIVE',
-      PAUSED: 'PAUSED',
-      ACTIVE: 'ACTIVE'
-    }
-  
+
+  const isEasyApply = (context) =>
+      !!context.querySelector(':has(svg[data-test-icon=linkedin-bug-color-small])');
+
+  class ListingController {
     constructor() {
-      this.state = JobController.traversalenum.INACTIVE;
+      this.root = null;
+      this.reachedEndOfListings = false;
 
-      this.nextListing = this.nextListing.bind(this);
-      this.hideListing = this.hideListing.bind(this);
-      this.traverseListing = this.traverseListing.bind(this);
+      this.iterate = this.iterate.bind(this);
+      this.next = this.next.bind(this);
+      this.click = this.click.bind(this);
+      this.abandon = this.abandon.bind(this);
+      this.traverse = this.traverse.bind(this);
+      this.goToNextPage = this.goToNextPage.bind(this);
     }
-  
-    startTraversal = () => {
-      this.state = JobController.traversalenum.ACTIVE;
-    }
-  
-    pauseTraversal = (message) => {
-      this.state = JobController.traversalenum.PAUSED;
-      if (message) console.log(message);
-    }
-  
-    endTraversal = () => {
-      this.state = JobController.traversalenum.PAUSED;
-    }
-  
-    static getNextListing () {
-      return document.querySelector(
-        'li[data-occludable-job-id]:has(svg[data-test-icon=linkedin-bug-color-small]) .job-card-container--clickable'
-      );
-    }
-  
-    async nextListing() {
-      // If listing is already opened, but traversal stopped due to empty field
-      if (!(
-        this.state === JobController.traversalenum.PAUSED && 
-        document.querySelectorAll('form').length
-      )) {
-        const listing = JobController.getNextListing();
-        
-        if (!listing) { // Reached end of page
-          const NextPageButton = document.querySelector('button[aria-label="View next page"]')
-          NextPageButton?.click();
-          return;
-        }
-        
-        listing.click();
-        
-        await delay(100)
-        const easyApplyButton = document.getElementById('jobs-apply-button-id');
-        
-        // If haven't applied, open application for current listing
-        if (easyApplyButton) easyApplyButton.click();
-        else { // Already applied
-          this.hideListing(listing);
-          return;
-        }
 
-        await delay(100);
-        console.log('Executing nextListing...');
-      } else {
-        console.log('Continuing paused traversal...')
+    get listingIsOpen() {
+      return document.querySelectorAll('form').length > 0;
+    }
+
+    get filter() {
+      return (listing) => {
+        const alreadyApplied = listing.querySelector('job-card-container__footer-job-state')?.textContent === 'Applied';
+        return !alreadyApplied && isEasyApply(listing);
       }
-  
-      this.startTraversal();
-      this.traverseListing();
     }
-    
-    async hideListing(listing) {
-      const dismissListingBtn = listing.querySelector('.job-card-list__actions-container button');
-      dismissListingBtn?.click();
-      await delay(300);
-      this.nextListing();
-    }
-    
-    async traverseListing (iteration = 1) {
-      console.log(`[Traversal #${iteration}]`);
-      /**
-       * There might be some edge case that `hasEmptyInput` missed. 
-       * This prevents an infinite loop.
-       */
-      if (iteration > 10) return;
 
-      if (hasEmptyInput()) {
-        this.pauseTraversal('Paused due to empty form fields.');
+    async iterate() {
+      if (this.listingIsOpen) {
+        console.log('Continuing open listing...')
+        this.traverse();
         return;
       }
-      
-      const nextButton = document.querySelector('[data-easy-apply-next-button], [data-live-test-easy-apply-review-button]');
-      const submitButton = document.querySelector('[data-live-test-easy-apply-submit-button]');
-      
-      /**
-       * If reached end of application: 
-       *  - uncheck "Follow [company]"
-       *  - submit
-       *  - close subsequent modals
-       *  - go to next listing
-       * Otherwise attempt to go to the next page
-       */
-      if (submitButton && this.state === JobController.traversalenum.ACTIVE) {
-        const followCheckbox = document.getElementById('follow-company-checkbox');
-        if (followCheckbox && followCheckbox.checked) followCheckbox.click();
-        await delay(300);
-    
-        document.querySelector('[data-live-test-easy-apply-submit-button]').click();
-    
-        await delay(1000);
-        document.querySelector('button:not(:has(svg))').click();
-        
-        await delay(2000);
-        document.querySelector('button[data-test-modal-close-btn]')?.click(); // end of application
-    
-        await delay(2000);
-        document.querySelector('button[data-test-modal-close-btn]')?.click(); // "application sent" confirmation
-    
-        this.endTraversal();
 
-        await delay(300);
-        this.nextListing();
-      } else if (nextButton && this.state === JobController.traversalenum.ACTIVE) {
-        nextButton.click();
+      await this.next();
+      this.click();
+
+      if (isEasyApply(this.root)) {
+        console.log(`'Easy apply' detected. Managing application flow...`)
         await delay(500);
-        this.traverseListing(iteration + 1);
+        this._handleEasyApply();
+        return;
       }
     }
+
+    async next() {
+      const allListings = Array.from(document.querySelectorAll('li[data-occludable-job-id]'));
+      this.root = allListings.filter(this.filter)[0];
+
+      if (!this.root) {
+        this.goToNextPage();
+        await delay(300);
+        return this.next();
+      }
+
+      if (this.reachedEndOfListings) return null;
+      return this;
+    }
+
+    goToNextPage() {
+      const NextPageButton = document.querySelector('button[aria-label="View next page"]');
+      if (NextPageButton) NextPageButton.click();
+      else this.reachedEndOfListings = true;
+    }
+
+    async click() {
+      const clickable = this.root.querySelector('.job-card-container--clickable');
+      if (!clickable) {
+        console.log('Clicking failed');
+        return;
+      }
+      clickable.click();      
+    }
+
+    async abandon() {
+      document.querySelector('button[data-test-modal-close-btn]')?.click();
+      await delay(300);
+      
+      document.querySelector('button[data-control-name=discard_application_confirm_btn]')?.click();
+      await delay(300);
+
+      const dismissListingBtn = this.root.querySelector('.job-card-list__actions-container button');
+      dismissListingBtn?.click();
+      await delay(300);
+      return this.iterate();
+    }
+    
+    async _handleEasyApply() {
+      const easyApplyButton = document.getElementById('jobs-apply-button-id');
+      if (!easyApplyButton) return;
+      easyApplyButton.click();
+      delay(1000);
+      this.traverse();
+    }
+    
+    async traverse(iteration = 1) {
+      if (iteration > 10) return;
+      await delay(1000)
+
+      if (hasEmptyInput()) {
+        console.log('Paused due to empty form fields.');
+        return;
+      }
+
+      const nextButton = document.querySelector('[data-easy-apply-next-button], [data-live-test-easy-apply-review-button]');
+      const submitButton = document.querySelector('[data-live-test-easy-apply-submit-button]');
+
+      if (submitButton) this.handleSubmit(submitButton);
+      else if (nextButton) {
+        nextButton.click();
+        await delay(300);
+        this.traverse(iteration + 1);
+      }
+    }
+
+    /**
+      * If reached end of application: 
+      *  - uncheck "Follow [company]"
+      *  - submit
+      *  - close subsequent modals
+      */
+    async handleSubmit(submitButton) {
+      const followCheckbox = document.getElementById('follow-company-checkbox');
+      if (followCheckbox && followCheckbox.checked) followCheckbox.click();
+      await delay(300);
+    
+      submitButton.click();
+      await delay(1000);
+
+      document.querySelector('button:not(:has(svg))').click();
+      await delay(2000);
+      
+      document.querySelector('button[data-test-modal-close-btn]')?.click(); // end of application
+      await delay(2000);
+      
+      document.querySelector('button[data-test-modal-close-btn]')?.click(); // "application sent" confirmation
+      await delay(500);
+
+      this.iterate();
+    }
+  }
+
+  const ListingHandler = new ListingController();
+
+  window.__mvEventHandler__ = {
+    LINKEDIN_NEXT_LISTING: ListingHandler.iterate,
+    LINKEDIN_HIDE_LISTING: ListingHandler.abandon
   }
   
-  const JobAutoApply = new JobController();
-  
-  window.linkedinEasyApply = JobAutoApply.nextListing;
-  window.linkedinHideListing = JobAutoApply.hideListing;
-
   window.addEventListener('message', evt => {
     console.log('Message received:', evt.data);
     if (evt.source !== window || !evt.data) return;
   
-    if (evt.data.type === 'LINKEDIN_NEXT_LISTING') {
-      window.linkedinEasyApply();
-    } else if (evt.data.type === 'LINKEDIN_HIDE_LISTING') {
-      (async () => {
-        document.querySelector('button[data-test-modal-close-btn]')?.click();
-        await delay(300);
-        document.querySelector('button[data-control-name=discard_application_confirm_btn]')?.click();
-        await delay(300);
-        window.linkedinHideListing(JobController.getNextListing())
-      })()
-    }
+    window.__mvEventHandler__[evt.data.type]?.();
   })
 }
