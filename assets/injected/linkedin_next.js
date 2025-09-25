@@ -16,7 +16,7 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
       .filter(filter);
   }
 
-  const redlistStr = [', CA', 'Alexander Chapman', 'California', 'Jobot', 'Dice'];
+  const redlistStr = [', CA', 'Alexander Chapman', 'California', 'Jobot', 'Dice', 'San Francisco', 'Bay Area'];
   const redlistRegex = [/research/i, /principal/i, /staff(.*)backend/i, /C\+\+/, /CyberCoders/i];
 
   const greenlistStr = ['fullstack']

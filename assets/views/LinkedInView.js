@@ -29,7 +29,5 @@ class LinkedInView extends AbstractView {
 }
 
 export default {
-  register: () => {
-    customElements.define(LinkedInView._elementId, LinkedInView)
-  },
+  register: LinkedInView.register.bind(LinkedInView),
 }

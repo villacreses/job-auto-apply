@@ -8,6 +8,12 @@
     "default_icon": "default.png"
   },
   "permissions": ["scripting", "activeTab", "storage"],
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/injected/*.js"],
+      "matches": ["https://*/*"]
+    }
+  ], 
   "host_permissions": [
     "https://*/*"
   ]

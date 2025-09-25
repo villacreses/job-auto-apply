@@ -5,6 +5,11 @@ export class AbstractView extends HTMLElement {
     return this._elementId;
   }
 
+  static register() {
+    console.log(this._elementId, this)
+    customElements.define(this._elementId, this);
+  }
+
   constructor(buttonProps, scriptFilenames) {
     super();
     this._initialized = false; 
@@ -41,13 +46,37 @@ export class AbstractView extends HTMLElement {
   }
 
   static async injectScript(filename) {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    
-    await chrome.scripting.executeScript({
-      target: {tabId : tab.id},
-      files: [`assets/injected/${filename}`],
-      world: 'MAIN',
-    });
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  
+      if (!tab || !tab.id) {
+        console.error("No active tab found.");
+        return;
+      }
+  
+      // Ensure tab is fully loaded
+      if (tab.status !== "complete") {
+        await new Promise((resolve) => {
+          const listener = (tabId, info) => {
+            if (tabId === tab.id && info.status === "complete") {
+              chrome.tabs.onUpdated.removeListener(listener);
+              resolve();
+            }
+          };
+          chrome.tabs.onUpdated.addListener(listener);
+        });
+      }
+      
+      await chrome.scripting.executeScript({
+        target: {tabId : tab.id},
+        files: [`assets/injected/${filename}`],
+        world: 'MAIN',
+      })
+      
+      console.log(`Injected script: ${filename}`);
+    } catch (err) {
+      console.error(`Failed to inject ${filename}:`, err);
+    }
   }
   
   async buildElement({ buttonText, action, className = '' }) {
