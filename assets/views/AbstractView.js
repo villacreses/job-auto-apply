@@ -24,7 +24,6 @@ export class AbstractView extends HTMLElement {
     this.classList.add('btn-group');
 
     const saved = await chrome.storage.session.get([storageKey]);
-    console.log('Saved?', saved)
     
     if (!saved[storageKey]) { 
       await Promise.all(
@@ -64,7 +63,7 @@ export class AbstractView extends HTMLElement {
       chrome.scripting.executeScript({       
         target: { tabId: tab.id },
         func: (type) => {
-          window.postMessage({ type }, '*');
+          window.postMessage({ type, ext_source: 'EXT' }, '*');
         },
         args: [action],
         world: 'MAIN' // ensures it runs in the page's JS context

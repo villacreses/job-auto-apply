@@ -1,5 +1,5 @@
 console.clear();
-console.log('Already injected?', window.__JOB_CONTROLLER_ALREADY_INJECTED__)
+// console.log('Already injected?', window.__JOB_CONTROLLER_ALREADY_INJECTED__)
 
 if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
   window.__JOB_CONTROLLER_ALREADY_INJECTED__ = true;
@@ -15,6 +15,23 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
       .map(field => key ? field[key] : field)
       .filter(filter);
   }
+
+  const redlistStr = [', CA', 'Alexander Chapman', 'California', 'Jobot', 'Dice'];
+  const redlistRegex = [/research/i, /principal/i, /staff(.*)backend/i, /C\+\+/, /CyberCoders/i];
+
+  const greenlistStr = ['fullstack']
+
+  function hasMatches(stringArr, regexArr) {
+    const desc = document.querySelector('.job-view-layout').textContent.replace(/\n/g, '').replace(/\s+/g, ' ');
+    const _stringArr = Array.isArray(stringArr) ? stringArr : []
+    const _regexArr = Array.isArray(regexArr) ? regexArr : []
+
+    const stringMatches = (_stringArr || []).map(str => desc.match(str)).filter(Boolean);
+    const regexMatches = _regexArr.map(r => r.test(desc)).filter(Boolean);
+
+    const totalMatches = [].concat(stringMatches, regexMatches);
+    return totalMatches.length > 0;
+  }
   
   function hasEmptyInput() {
     const emptyTextInputs = mapSelected('form input[type=text][required]', value => value === '' || value === '0');
@@ -24,12 +41,18 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
       .filter(f => f.querySelector('input[type=radio]:checked') === null);
 
     const totalEmpty = [].concat(emptyTextInputs, emptyDropdowns, emptyRadioSelects);
-
     return totalEmpty.length > 0;
   }
+  const listOfJobsExists = () => !!document.querySelector('.scaffold-layout__list');
 
-  const isEasyApply = (context) =>
-      !!context.querySelector(':has(svg[data-test-icon=linkedin-bug-color-small])');
+  const isEasyApply = (context) => listOfJobsExists()
+    ? !!context.querySelector(':has(svg[data-test-icon=linkedin-bug-color-small])')
+    : !!document.getElementById('jobs-apply-button-id');
+
+  const isInSingleJobView = () => {
+    const jobPostingOpen = !!document.querySelector('.job-view-layout');
+    return jobPostingOpen && !listOfJobsExists;
+  }
 
   class ListingController {
     constructor() {
@@ -50,8 +73,10 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
 
     get filter() {
       return (listing) => {
-        const alreadyApplied = listing.querySelector('job-card-container__footer-job-state')?.textContent === 'Applied';
-        return !alreadyApplied && isEasyApply(listing);
+        const listingStatus = listing.querySelector('job-card-container__footer-job-state')?.textContent
+        const alreadyApplied = listingStatus === 'Applied';
+        const alreadySaved = listingStatus === 'Saved';
+        return !alreadyApplied && !alreadySaved && isEasyApply(listing);
       }
     }
 
@@ -64,12 +89,19 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
 
       await this.next();
       this.click();
+      await delay(500);
+
+      if (hasMatches(redlistStr, redlistRegex)) {
+        console.log('Skipping due to redlist match...');
+        this.abandon();
+        return;
+      }
 
       if (isEasyApply(this.root)) {
         console.log(`'Easy apply' detected. Managing application flow...`)
-        await delay(500);
         this._handleEasyApply();
-        return;
+      } else if (shouldGreenlist()) {
+
       }
     }
 
@@ -112,6 +144,7 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
       const dismissListingBtn = this.root.querySelector('.job-card-list__actions-container button');
       dismissListingBtn?.click();
       await delay(300);
+
       return this.iterate();
     }
     
@@ -120,6 +153,7 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
       if (!easyApplyButton) return;
       easyApplyButton.click();
       delay(1000);
+
       this.traverse();
     }
     
@@ -129,6 +163,7 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
 
       if (hasEmptyInput()) {
         console.log('Paused due to empty form fields.');
+        window.postMessage({ type: 'LINKEDIN_AUTOFILL', ext_source: 'INJ_SCRIPT' }, '*');
         return;
       }
 
@@ -178,9 +213,10 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
   }
   
   window.addEventListener('message', evt => {
+    if (evt.source !== window || !evt.data || !evt.data.ext_source) return;
+    if (evt.data.ext_source === 'INJ_SCRIPT') return;
+
     console.log('Message received:', evt.data);
-    if (evt.source !== window || !evt.data) return;
-  
     window.__mvEventHandler__[evt.data.type]?.();
   })
 }
