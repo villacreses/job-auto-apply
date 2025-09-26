@@ -7,9 +7,10 @@ if (!window.__REGEX_HANDLER_ALREADY_INJECTED__) {
     console.log('Filling common questions, if any....');
     handleFieldsets();
     handleDropdowns();
+    handleTextInputs();
   }
   
-  const regex = [
+  const regexSelect = [
     { regex: /legally(.*)authorized/i, defaultYes: true },
     { regex: /authorized(.*)work/i, defaultYes: true },
     { regex: /comfortable(.*)commuting/i, defaultYes: true },
@@ -19,17 +20,22 @@ if (!window.__REGEX_HANDLER_ALREADY_INJECTED__) {
     { regex: /currently(.*)work/i, defaultYes: false },
   ];
 
+  const regexText = [
+    { regex: /Location/i, value: 'New York, NY' },
+    { regex: /LinkedIn/i, value: 'https://linkedin.com/in/villacreses' },
+  ]
+
   function handleFieldsets() {  
     const fieldsets = Array.from(document.querySelectorAll('fieldset'))
       .map(f => ({
         question: f.querySelector('legend span span')?.textContent,
         options: f.querySelectorAll('label'),
       }))
-      .filter(({question}) => question.trim().length)
+      .filter(({question}) => question?.trim().length)
       
     if (fieldsets.length === 0) return;
     
-    regex.map(({regex, defaultYes}) => ({
+    regexSelect.map(({regex, defaultYes}) => ({
       ...(fieldsets.find(f => regex.test(f.question)) || {}),
       defaultYes
     }))
@@ -47,11 +53,11 @@ if (!window.__REGEX_HANDLER_ALREADY_INJECTED__) {
         question: document.querySelector(`label[for=${f.id}] span`)?.textContent,
         options: f.querySelectorAll('option'),
       }))
-      .filter(({question}) => question.trim().length)
+      .filter(({question}) => question?.trim().length)
       
     if (dropdowns.length === 0) return;
     
-    regex.map(({regex, defaultYes}) => ({
+    regexSelect.map(({regex, defaultYes}) => ({
       ...(dropdowns.find(f => regex.test(f.question)) || {}),
       defaultYes
     }))
@@ -63,15 +69,32 @@ if (!window.__REGEX_HANDLER_ALREADY_INJECTED__) {
     })
   }
 
-    window.__linkedin_formEventHandler__ = {
-      LINKEDIN_AUTOFILL: autofill,
+  function handleTextInputs() {
+    const emptyTextInputs = Array.from(document.querySelectorAll('form input[type=text]'))
+      .filter(input => !input.value)
+      .map(input => ({
+        input,
+        label: document.querySelector(`label[for=${input.id}]`)?.textContent || ''
+      }));
+    
+    regexText
+      .map(({regex, value}) => ({
+        ...emptyTextInputs.find(({label}) => regex.test(label)),
+        value
+      }))
+      .filter(foundMatch => foundMatch.label)
+      .forEach(({input, value}) => input.value = value)
+  }
+  
+  window.__linkedin_formEventHandler__ = {
+    LINKEDIN_AUTOFILL: autofill,
+  }
+
+  window.addEventListener('message', evt => {
+    if (evt.source !== window || !evt.data || !evt.data.ext_source) return;
+
+    if (evt.data.ext_source === 'INJ_SCRIPT') {
+      window.__linkedin_formEventHandler__[evt.data.type]?.();
     }
-
-    window.addEventListener('message', evt => {
-      if (evt.source !== window || !evt.data || !evt.data.ext_source) return;
-
-      if (evt.data.ext_source === 'INJ_SCRIPT') {
-        window.__linkedin_formEventHandler__[evt.data.type]?.();
-      }
-    })
+  })
 }

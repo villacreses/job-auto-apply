@@ -17,7 +17,7 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
   }
 
   const redlistStr = [', CA', 'Alexander Chapman', 'California', 'Jobot', 'Dice', 'San Francisco', 'Bay Area'];
-  const redlistRegex = [/research/i, /principal/i, /staff(.*)backend/i, /C\+\+/, /CyberCoders/i];
+  const redlistRegex = [/research/i, /principal/i, /staff(.*)backend/i, /C\+\+/, /CyberCoders/i,];
 
   const greenlistStr = ['fullstack']
 
@@ -40,7 +40,9 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
       .from(document.querySelectorAll('fieldset'))
       .filter(f => f.querySelector('input[type=radio]:checked') === null);
 
-    const totalEmpty = [].concat(emptyTextInputs, emptyDropdowns, emptyRadioSelects);
+    const coverLetterInput = Array.from(document.querySelectorAll('form label')).filter(l => /cover letter/i.test(l.innerText));
+
+    const totalEmpty = [].concat(emptyTextInputs, emptyDropdowns, emptyRadioSelects, coverLetterInput);
     return totalEmpty.length > 0;
   }
   const listOfJobsExists = () => !!document.querySelector('.scaffold-layout__list');
@@ -106,16 +108,24 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
     }
 
     async next() {
+      console.log('Fetching next listing...');
       const allListings = Array.from(document.querySelectorAll('li[data-occludable-job-id]'));
       this.root = allListings.filter(this.filter)[0];
 
       if (!this.root) {
+        console.log('No more valid listings, going to next page.')
         this.goToNextPage();
-        await delay(300);
-        return this.next();
+        await delay(3000);
+
+        if (!this.reachedEndOfListings) {
+          return this.next();
+        }
       }
 
-      if (this.reachedEndOfListings) return null;
+      if (this.reachedEndOfListings) {
+        console.log('Reached end of listings.')
+        return null;
+      }
       return this;
     }
 
@@ -126,7 +136,7 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
     }
 
     async click() {
-      const clickable = this.root.querySelector('.job-card-container--clickable');
+      const clickable = this.root?.querySelector('.job-card-container--clickable');
       if (!clickable) {
         console.log('Clicking failed');
         return;

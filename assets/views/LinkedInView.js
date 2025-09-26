@@ -23,7 +23,8 @@ class LinkedInView extends AbstractView {
         className: 'abort'
       },
     ], [
-      'linkedin_next.js'
+      'linkedin_next.js',
+      'linkedin_regex.js',
     ]);
   }
 }
