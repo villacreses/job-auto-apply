@@ -16,10 +16,10 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
       .filter(filter);
   }
 
-  const redlistStr = [', CA', 'Alexander Chapman', 'California', 'Jobot', 'Dice', 'San Francisco', 'Bay Area'];
+  const redlistStr = [', CA', 'Alexander Chapman', 'California', 'Jobot', 'Dice', 'India'];
   const redlistRegex = [/research/i, /principal/i, /staff(.*)backend/i, /C\+\+/, /CyberCoders/i,];
 
-  const greenlistStr = ['fullstack']
+  const emberID = node => Number(node?.id.split('ember')[1]);
 
   function hasMatches(stringArr, regexArr) {
     const desc = document.querySelector('.job-view-layout').textContent.replace(/\n/g, '').replace(/\s+/g, ' ');
@@ -65,7 +65,7 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
       this.next = this.next.bind(this);
       this.click = this.click.bind(this);
       this.abandon = this.abandon.bind(this);
-      this.traverse = this.traverse.bind(this);
+      this.traverseOpenListing = this.traverseOpenListing.bind(this);
       this.goToNextPage = this.goToNextPage.bind(this);
     }
 
@@ -75,17 +75,20 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
 
     get filter() {
       return (listing) => {
-        const listingStatus = listing.querySelector('job-card-container__footer-job-state')?.textContent
-        const alreadyApplied = listingStatus === 'Applied';
-        const alreadySaved = listingStatus === 'Saved';
-        return !alreadyApplied && !alreadySaved && isEasyApply(listing);
+        const listingStatus = listing.querySelector('.job-card-container__footer-job-state')?.textContent
+        const alreadyApplied = /applied/i.test(listingStatus);
+        const alreadySaved = /saved/i.test(listingStatus);
+        const alreadyDismissed = !!document.querySelector('.job-card-list--is-dismissed')
+        const isPrevListing = !!this.root && emberID(this.root) >= emberID(listing);
+
+        return !alreadyApplied && !alreadySaved && !alreadyDismissed && !isPrevListing;
       }
     }
 
     async iterate() {
       if (this.listingIsOpen) {
         console.log('Continuing open listing...')
-        this.traverse();
+        this.traverseOpenListing();
         return;
       }
 
@@ -102,15 +105,15 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
       if (isEasyApply(this.root)) {
         console.log(`'Easy apply' detected. Managing application flow...`)
         this._handleEasyApply();
-      } else if (shouldGreenlist()) {
-
+      } else if (this.root) {
+        this._handleExternalApply();
       }
     }
 
     async next() {
       console.log('Fetching next listing...');
-      const allListings = Array.from(document.querySelectorAll('li[data-occludable-job-id]'));
-      this.root = allListings.filter(this.filter)[0];
+      const allListings = Array.from(document.querySelectorAll('li[data-occludable-job-id]')).filter(this.filter);
+      this.root = allListings[0];
 
       if (!this.root) {
         console.log('No more valid listings, going to next page.')
@@ -164,10 +167,23 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
       easyApplyButton.click();
       delay(1000);
 
-      this.traverse();
+      this.iterate();
+    }
+
+    async _handleExternalApply() {
+      const saveJobButton = document.querySelector('button.jobs-save-button');
+      // Listing state on sidebar is inconsistent, so this check has to be done again on the job description
+      const alreadySaved = /saved/i.test(saveJobButton?.textContent);
+      if (!alreadySaved && saveJobButton) {
+        saveJobButton.click();
+        
+        console.log('Saved job: ', document.querySelector('h1')?.textContent)
+        await delay(300);
+      }
+      return this.iterate()
     }
     
-    async traverse(iteration = 1) {
+    async traverseOpenListing(iteration = 1) {
       if (iteration > 10) return;
       await delay(1000)
 
@@ -184,7 +200,7 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
       else if (nextButton) {
         nextButton.click();
         await delay(300);
-        this.traverse(iteration + 1);
+        this.traverseOpenListing(iteration + 1);
       }
     }
 

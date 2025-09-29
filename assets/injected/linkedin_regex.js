@@ -23,6 +23,8 @@ if (!window.__REGEX_HANDLER_ALREADY_INJECTED__) {
   const regexText = [
     { regex: /Location/i, value: 'New York, NY' },
     { regex: /LinkedIn/i, value: 'https://linkedin.com/in/villacreses' },
+    { regex: /website/i, value: 'https://mariovillacreses.com/' },
+    { regex: /portfolio/i, value: 'https://mariovillacreses.com/' },
   ]
 
   function handleFieldsets() {  
