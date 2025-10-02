@@ -8,6 +8,13 @@ if (!window.__REGEX_HANDLER_ALREADY_INJECTED__) {
     handleFieldsets();
     handleDropdowns();
     handleTextInputs();
+
+    if (
+      window.__mvEventHandler__?.CHECK_EMPTY_INPUTS &&
+      window.__mvEventHandler__?.CHECK_EMPTY_INPUTS() === false
+    ) {
+      window.postMessage({ type: 'LINKEDIN_NEXT_LISTING', ext_source: 'AUTOFILL_SCRIPT' }, '*');
+    }
   }
   
   const regexSelect = [
@@ -18,15 +25,19 @@ if (!window.__REGEX_HANDLER_ALREADY_INJECTED__) {
     { regex: /sponsor(.*)visa/i, defaultYes: false },
     { regex: /visa(.*)sponsor/i, defaultYes: false },
     { regex: /currently(.*)work/i, defaultYes: false },
-    { regex: /worked for/i, defaultYes: false },
+    { regex: /work(.*)for/i, defaultYes: false },
+    { regex: /bachelor/i, defaultYes: true },
+
   ];
 
   const regexText = [
-    { regex: /Location/i, value: 'New York, NY' },
+    { regex: /Location/i, value: 'New York, New York, NY' },
     { regex: /LinkedIn/i, value: 'https://linkedin.com/in/villacreses' },
     { regex: /website/i, value: 'https://mariovillacreses.com/' },
     { regex: /portfolio/i, value: 'https://mariovillacreses.com/' },
     { regex: /Your name/i, value: 'Mario Villacreses' },
+    { regex: /City/i, value: 'New York' },
+    { regex: /referred/i, value: 'N/A' },
   ]
 
   function handleFieldsets() {  

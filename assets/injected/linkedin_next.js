@@ -48,6 +48,7 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
     const totalEmpty = [].concat(emptyTextInputs, emptyDropdowns, emptyRadioSelects, coverLetterInput);
     return totalEmpty.length > 0;
   }
+
   const listOfJobsExists = () => !!document.querySelector('.scaffold-layout__list');
 
   const isEasyApply = (context) => listOfJobsExists()
@@ -295,7 +296,8 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
 
   window.__mvEventHandler__ = {
     LINKEDIN_NEXT_LISTING: ListingHandler.iterate,
-    LINKEDIN_HIDE_LISTING: ListingHandler.abandon
+    LINKEDIN_HIDE_LISTING: ListingHandler.abandon,
+    CHECK_EMPTY_INPUTS: hasEmptyInput,
   }
   
   window.addEventListener('message', evt => {
