@@ -18,6 +18,7 @@ if (!window.__REGEX_HANDLER_ALREADY_INJECTED__) {
     { regex: /sponsor(.*)visa/i, defaultYes: false },
     { regex: /visa(.*)sponsor/i, defaultYes: false },
     { regex: /currently(.*)work/i, defaultYes: false },
+    { regex: /worked for/i, defaultYes: false },
   ];
 
   const regexText = [
@@ -25,6 +26,7 @@ if (!window.__REGEX_HANDLER_ALREADY_INJECTED__) {
     { regex: /LinkedIn/i, value: 'https://linkedin.com/in/villacreses' },
     { regex: /website/i, value: 'https://mariovillacreses.com/' },
     { regex: /portfolio/i, value: 'https://mariovillacreses.com/' },
+    { regex: /Your name/i, value: 'Mario Villacreses' },
   ]
 
   function handleFieldsets() {  
@@ -71,6 +73,14 @@ if (!window.__REGEX_HANDLER_ALREADY_INJECTED__) {
     })
   }
 
+  function simulateTextInputInteraction(element, value = '') {
+    element.focus();
+    element.value = value;
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+    element.blur();
+  }
+
   function handleTextInputs() {
     const emptyTextInputs = Array.from(document.querySelectorAll('form input[type=text]'))
       .filter(input => !input.value)
@@ -85,7 +95,9 @@ if (!window.__REGEX_HANDLER_ALREADY_INJECTED__) {
         value
       }))
       .filter(foundMatch => foundMatch.label)
-      .forEach(({input, value}) => input.value = value)
+      .forEach(({input, value}) => {
+        simulateTextInputInteraction(input, value);
+      })
   }
   
   window.__linkedin_formEventHandler__ = {

@@ -16,8 +16,11 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
       .filter(filter);
   }
 
-  const redlistStr = [', CA', 'Alexander Chapman', 'California', 'Jobot', 'Dice', 'India'];
-  const redlistRegex = [/research/i, /principal/i, /staff(.*)backend/i, /C\+\+/, /CyberCoders/i,];
+  const redlistStr = ['Alexander Chapman', 'Jobot', 'Dice', 'India'];
+  const redlistRegex = [/research/i, /C\+\+/, /CyberCoders/i,];
+
+  const redlistLocation = [', CA', 'Bay Area', 'San Francisco', 'California'];
+  const redlistQualification = [/Lead/i, /Staff(.*)Backend/i, /java/i, /AI/, /principal/i];
 
   const emberID = node => Number(node?.id.split('ember')[1]);
 
@@ -59,92 +62,139 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
   class ListingController {
     constructor() {
       this.root = null;
-      this.reachedEndOfListings = false;
-
+      this.clickingFailed = false;
+      this.setupNewPage();
+      this.setupModalObserver();
+      
       this.iterate = this.iterate.bind(this);
-      this.next = this.next.bind(this);
       this.click = this.click.bind(this);
       this.abandon = this.abandon.bind(this);
       this.traverseOpenListing = this.traverseOpenListing.bind(this);
       this.goToNextPage = this.goToNextPage.bind(this);
     }
-
+    
     get listingIsOpen() {
-      return document.querySelectorAll('form').length > 0;
+      return !!document.getElementById('artdeco-modal-outlet')?.childNodes.length
     }
 
-    get filter() {
-      return (listing) => {
-        const listingStatus = listing.querySelector('.job-card-container__footer-job-state')?.textContent
-        const alreadyApplied = /applied/i.test(listingStatus);
-        const alreadySaved = /saved/i.test(listingStatus);
-        const alreadyDismissed = !!document.querySelector('.job-card-list--is-dismissed')
-        const isPrevListing = !!this.root && emberID(this.root) >= emberID(listing);
-
-        return !alreadyApplied && !alreadySaved && !alreadyDismissed && !isPrevListing;
+    get scrollContainer() {
+      const anyListing = document.querySelector('li[data-occludable-job-id]');
+      const scrollContainer = anyListing?.parentElement?.parentElement;
+      return scrollContainer;
+    }
+    
+    shouldSkipListing() {
+      const listingRoot = document.querySelector('.jobs-details__main-content');
+      const title = listingRoot.querySelector('h1').textContent;
+      const jobMetadata = listingRoot.querySelector('.job-details-jobs-unified-top-card__primary-description-container').textContent;
+      const description = listingRoot.querySelector('.jobs-description__content, .jobs-description-content').textContent.replace(/\s+/g, ' ');
+      
+      const redlistChecks = {
+        unqualified: redlistQualification.map(r => r.test(title)).filter(Boolean).length > 0,
+        undesirableLocation: redlistLocation.map(l => jobMetadata.indexOf(l) > -1).filter(Boolean).length > 0,
+        redlistKeyword: [].concat(
+          redlistStr.map(r => listingRoot.textContent.indexOf(r) > -1).filter(Boolean),
+          redlistRegex.map(r => r.test(listingRoot.textContent)).filter(Boolean)
+        ).length > 0,
       }
+      
+      const shouldSkip = Object.values(redlistChecks).filter(Boolean).length > 0;
+      if (shouldSkip) {
+        console.log(`Skipping "${title}": `, redlistChecks);
+      }
+      
+      return shouldSkip;
     }
 
+    setupModalObserver() {
+      this.modalObserver = new MutationObserver((mutations) => {
+        const hasAddedNodes = mutations.some(mutation =>
+          mutation.type === 'childList' && mutation.addedNodes.length > 0
+        );
+
+        if (hasAddedNodes) {
+          console.log('Modal opened!');
+          this.modalObserver.disconnect(); // optional: stop watching after first open
+          this.traverseOpenListing();
+        }
+      });
+    }
+
+    observeModalOpen() {
+      this.modalObserver.observe(
+        document.getElementById('artdeco-modal-outlet'), {
+          childList: true,
+        }
+      )
+    }
+    
+    setupNewPage() {
+      this.listIndex = 0;
+      this.listings = Array.from(document.querySelectorAll('li[data-occludable-job-id]'))
+      console.log('Listings:', this.listings.length)
+    }
+    
     async iterate() {
       if (this.listingIsOpen) {
-        console.log('Continuing open listing...')
-        this.traverseOpenListing();
+        console.log('Continuing with open listing...')
+        await this.traverseOpenListing();
         return;
       }
 
-      await this.next();
-      this.click();
-      await delay(500);
+      await this.goToNextListing();
 
-      if (hasMatches(redlistStr, redlistRegex)) {
-        console.log('Skipping due to redlist match...');
-        this.abandon();
+      if (this.reachedEndOfListings || this.clickingFailed) {
+        console.log('Reached end of listings.');
+        this.clickingFailed = false; // Reset
         return;
       }
 
-      if (isEasyApply(this.root)) {
-        console.log(`'Easy apply' detected. Managing application flow...`)
-        this._handleEasyApply();
-      } else if (this.root) {
-        this._handleExternalApply();
+      if (this.shouldSkipListing()) {
+        return this.iterate();
       }
+      
+      const title = document.querySelector('h1').textContent;
+      console.log(`Checking job: ${title}`)
+
+      if (isEasyApply(this.root)) return this._handleEasyApply();
+      else return await this._handleExternalApply();
     }
 
-    async next() {
-      console.log('Fetching next listing...');
-      const allListings = Array.from(document.querySelectorAll('li[data-occludable-job-id]')).filter(this.filter);
-      this.root = allListings[0];
+    async goToNextListing() {
+      if (this.listIndex >= this.listings.length) {
+        console.log('Reached end of page, going to next page...')
+        await this.goToNextPage();
+      } 
+    
+      if (!this.reachedEndOfListings) {
+        console.log('Opening next listing...');
+        this.root = this.listings[this.listIndex++]
+        this.root.scrollIntoView({ block: 'nearest' });
+        this.scrollContainer?.dispatchEvent(new Event('scroll'));
 
-      if (!this.root) {
-        console.log('No more valid listings, going to next page.')
-        this.goToNextPage();
-        await delay(3000);
-
-        if (!this.reachedEndOfListings) {
-          return this.next();
-        }
+        await this.click();
       }
-
-      if (this.reachedEndOfListings) {
-        console.log('Reached end of listings.')
-        return null;
-      }
-      return this;
     }
-
-    goToNextPage() {
+    
+    async goToNextPage() {
       const NextPageButton = document.querySelector('button[aria-label="View next page"]');
-      if (NextPageButton) NextPageButton.click();
+      if (NextPageButton) {
+        NextPageButton.click();
+        await delay(1000);
+        this.setupNewPage();
+      }
       else this.reachedEndOfListings = true;
     }
-
+    
     async click() {
       const clickable = this.root?.querySelector('.job-card-container--clickable');
       if (!clickable) {
-        console.log('Clicking failed');
+        console.log('Clicking failed', this.root);
+        this.clickingFailed = true;
         return;
       }
       clickable.click();      
+      await delay(3000);
     }
 
     async abandon() {
@@ -161,13 +211,17 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
       return this.iterate();
     }
     
-    async _handleEasyApply() {
+    _handleEasyApply() {
+      console.log('Easy apply detected');
       const easyApplyButton = document.getElementById('jobs-apply-button-id');
-      if (!easyApplyButton) return;
-      easyApplyButton.click();
-      delay(1000);
+      if (!easyApplyButton) {
+        console.log('Already applied, continuing...')
+        return this.iterate();
+      }
 
-      this.iterate();
+      easyApplyButton.click();
+      console.log('Opening easy apply application.')
+      this.observeModalOpen();
     }
 
     async _handleExternalApply() {
@@ -176,16 +230,18 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
       const alreadySaved = /saved/i.test(saveJobButton?.textContent);
       if (!alreadySaved && saveJobButton) {
         saveJobButton.click();
-        
         console.log('Saved job: ', document.querySelector('h1')?.textContent)
         await delay(300);
+      } else {
+        console.log('Job already saved. Continuing...')
       }
-      return this.iterate()
-    }
+
+      this.iterate();
+    } 
     
     async traverseOpenListing(iteration = 1) {
       if (iteration > 10) return;
-      await delay(1000)
+      console.log('Attempting to traverse open listing...')
 
       if (hasEmptyInput()) {
         console.log('Paused due to empty form fields.');
@@ -198,9 +254,12 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
 
       if (submitButton) this.handleSubmit(submitButton);
       else if (nextButton) {
+        console.log('Going to next application page.')
         nextButton.click();
         await delay(300);
-        this.traverseOpenListing(iteration + 1);
+        await this.traverseOpenListing(iteration + 1);
+      } else {
+        console.error('Unable to find "Next" or "Submit" buttons.')
       }
     }
 
@@ -217,7 +276,8 @@ if (!window.__JOB_CONTROLLER_ALREADY_INJECTED__) {
     
       submitButton.click();
       await delay(1000);
-
+      
+      console.log('Application submitted!')
       document.querySelector('button:not(:has(svg))').click();
       await delay(2000);
       
